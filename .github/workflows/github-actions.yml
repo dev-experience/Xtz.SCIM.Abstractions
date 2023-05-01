@@ -1,0 +1,135 @@
+name: CI/CD
+run-name: ⚙ CI/CD for ${{ github.repository }}
+on: [push]
+env:
+  useDotnet: true
+  publishNugets: true
+  runUnitTests: false
+jobs:
+
+  CI_Build:
+    name: CI - Build & Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dotnetSdkVersion: [ '6.0.x' ]
+
+    steps:
+
+      - run: |
+          echo "github.event_name = '${{ github.event_name }}'"
+          echo "runner.os = '${{ runner.os }}'"
+          echo "github.ref = '${{ github.ref }}'"
+          echo "github.repository = '${{ github.repository }}'"
+
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup .NET Core SDK ${{ matrix.dotnetSdkVersion }}
+        if: env.useDotnet
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ matrix.dotnetSdkVersion }}
+
+      - name: .NET | Restore
+        if: env.useDotnet
+        run: |
+          dotnet restore "./src"
+
+      - name: .NET | Build
+        if: env.useDotnet
+        run: |
+          dotnet build "./src" --configuration Release --no-restore
+
+      # - name: .NET | Find Unit Tests
+      #   id: FindDotnetUnitTests
+      #   if: env.useDotnet && env.runUnitTests
+      #   run: echo "::set-output name=FILELIST::$(find . -wholename './src/**/*.UnitTests.csproj' -print)
+
+      # - name: .NET | Unit Tests
+      #   if: env.useDotnet && env.runUnitTests
+      #   run: |
+      #     IFS="," read -a myarray <<< ${{ steps.FindDotnetUnitTests.outputs.FILELIST }}
+      #     for i in "${myarray[@]}"; do
+      #       dotnet test "${i}" --no-restore --verbosity normal --logger trx --results-directory "UnitTests-${{ matrix.dotnetSdkVersion }}"
+      #     done
+
+      # - name: .NET | Unit Tests | Upload test results
+      #   if: ${{ always() && env.useDotnet && env.runUnitTests }}
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: dotnet-test-results-${{ matrix.dotnetSdkVersion }}
+      #     path: UnitTests-${{ matrix.dotnetSdkVersion }}
+
+  CI_Publish:
+    name: CI - Publish Artifacts
+    if: github.ref == 'refs/heads/main'
+    needs: CI_Build
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: .NET | Find NuGets
+        id: FindNugets
+        if: env.useDotnet && env.publishNugets
+        run: |
+          echo "::set-output name=NUPKG_FILELIST::$(find . -wholename './src/**/bin/Release/*.nupkg' -print)
+          echo "::set-output name=SNUPKG_FILELIST::$(find . -wholename './src/**/bin/Release/*.snupkg' -print)
+
+      - name: .NET | Publish NuGets
+        if: env.useDotnet && env.publishNugets
+        run: |
+          mkdir "publish-nuget" --parents
+
+          NUPKG_FILELIST = ${{ steps.FindNugets.outputs.NUPKG_FILELIST }}
+          IFS="," read -a myarray <<< $NUPKG_FILELIST
+          for i in "${myarray[@]}"; do
+            cp $i "publish-nuget"
+          done
+
+          SNUPKG_FILELIST = ${{ steps.FindNugets.outputs.SNUPKG_FILELIST }}
+          IFS="," read -a myarray <<< $SNUPKG_FILELIST
+          for i in "${myarray[@]}"; do
+            cp $i "publish-nuget"
+          done
+
+      - name: .NET | Store NuGet artifacts
+        if: env.useDotnet && env.publishNugets
+        uses: actions/upload-artifact@v3
+        with:
+          name: nuget-packages
+          path: publish-nuget/*
+
+  CD_Push:
+    name: CD - Push
+    if: github.ref == 'refs/heads/main'
+    needs: CI_Publish
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: .NET | Download NuGet artifacts
+        if: env.useDotnet && env.publishNugets
+        uses: actions/download-artifact@v3
+        with:
+          name: nuget-packages
+
+      - name: .NET | Print NuGet artifacts
+        if: env.useDotnet && env.publishNugets
+        run: ls -R
+
+      - name: .NET | Find NuGets
+        id: FindNugetArtifacts
+        if: env.useDotnet && env.publishNugets
+        run: |
+          echo "::set-output name=NUPKG_FILELIST::$(find . -wholename './nuget-packages/*.nupkg' -print)
+          echo "::set-output name=SNUPKG_FILELIST::$(find . -wholename './nuget-packages/*.snupkg' -print)
+
+      - name: .NET | Push NuGets
+        if: env.useDotnet && env.publishNugets
+        run: |
+          NUPKG_FILELIST = ${{ steps.FindNugetArtifacts.outputs.NUPKG_FILELIST }}
+          IFS="," read -a myarray <<< $NUPKG_FILELIST
+          for i in "${myarray[@]}"; do
+            dotnet nuget push "${i}" --api-key "${{ secrets.NugetOrg_ApiToken }}" --source "https://api.nuget.org/v3/index.json" --symbol-api-key "${{ secrets.NugetOrg_ApiToken }}" --symbol-source "https://api.nuget.org/v3/index.json" --skip-duplicate
+          done

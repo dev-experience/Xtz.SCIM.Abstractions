@@ -61,8 +61,9 @@ jobs:
         run: |
           echo "NUPKG_FILELIST=$(find . -wholename './src/**/bin/Release/*.nupkg' -print)" >> "$GITHUB_ENV"
           echo "SNUPKG_FILELIST=$(find . -wholename './src/**/bin/Release/*.snupkg' -print)" >> "$GITHUB_ENV"
-          # echo "::set-output name=NUPKG_FILELIST::$(find . -wholename './src/**/bin/Release/*.nupkg' -print)
-          # echo "::set-output name=SNUPKG_FILELIST::$(find . -wholename './src/**/bin/Release/*.snupkg' -print)
+
+          echo "NUPKG_FILELIST='${NUPKG_FILELIST}'"
+          echo "SNUPKG_FILELIST='${SNUPKG_FILELIST}'"
 
       - name: .NET | Publish NuGets
         if: github.ref == 'refs/heads/main' && env.useDotnet && env.publishNugets
@@ -113,11 +114,14 @@ jobs:
           echo "NUPKG_FILELIST=$(find . -wholename './nuget-packages/*.nupkg' -print)" >> "$GITHUB_ENV"
           echo "SNUPKG_FILELIST=$(find . -wholename './nuget-packages/*.snupkg' -print)" >> "$GITHUB_ENV"
 
+          echo "NUPKG_FILELIST='${NUPKG_FILELIST}'"
+          echo "SNUPKG_FILELIST='${SNUPKG_FILELIST}'"
+
       - name: .NET | Push NuGets
         if: env.useDotnet && env.publishNugets
         run: |
-          SNUPKG_FILELIST='${{ env.SNUPKG_FILELIST }}'
-          IFS="," read -a myarray <<< $SNUPKG_FILELIST
+          NUPKG_FILELIST='${{ env.NUPKG_FILELIST }}'
+          IFS="," read -a myarray <<< $NUPKG_FILELIST
           for i in "${myarray[@]}"; do
             dotnet nuget push "${i}" --api-key "${{ secrets.NugetOrg_ApiToken }}" --source "https://api.nuget.org/v3/index.json" --symbol-api-key "${{ secrets.NugetOrg_ApiToken }}" --symbol-source "https://api.nuget.org/v3/index.json" --skip-duplicate
           done

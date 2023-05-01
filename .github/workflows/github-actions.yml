@@ -113,8 +113,8 @@ jobs:
         id: FindNugetArtifacts
         if: env.useDotnet && env.publishNugets
         run: |
-          echo "NUPKG_FILELIST=$(find . -wholename './nuget-packages/*.nupkg' -print)" >> "$GITHUB_ENV"
-          echo "SNUPKG_FILELIST=$(find . -wholename './nuget-packages/*.snupkg' -print)" >> "$GITHUB_ENV"
+          echo "NUPKG_FILELIST=$(find . -wholename './publish-nuget/*.nupkg' -print)" >> "$GITHUB_ENV"
+          echo "SNUPKG_FILELIST=$(find . -wholename './publish-nuget/*.snupkg' -print)" >> "$GITHUB_ENV"
 
           echo "NUPKG_FILELIST='${NUPKG_FILELIST}'"
           echo "SNUPKG_FILELIST='${SNUPKG_FILELIST}'"

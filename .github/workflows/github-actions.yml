@@ -69,13 +69,13 @@ jobs:
         run: |
           mkdir "publish-nuget" --parents
 
-          NUPKG_FILELIST = '${{ env.NUPKG_FILELIST }}'
+          NUPKG_FILELIST='${{ env.NUPKG_FILELIST }}'
           IFS="," read -a myarray <<< $NUPKG_FILELIST
           for i in "${myarray[@]}"; do
             cp $i "publish-nuget"
           done
 
-          SNUPKG_FILELIST = '${{ env.SNUPKG_FILELIST }}'
+          SNUPKG_FILELIST='${{ env.SNUPKG_FILELIST }}'
           IFS="," read -a myarray <<< $SNUPKG_FILELIST
           for i in "${myarray[@]}"; do
             cp $i "publish-nuget"
@@ -116,7 +116,7 @@ jobs:
       - name: .NET | Push NuGets
         if: env.useDotnet && env.publishNugets
         run: |
-          SNUPKG_FILELIST = '${{ env.SNUPKG_FILELIST }}'
+          SNUPKG_FILELIST='${{ env.SNUPKG_FILELIST }}'
           IFS="," read -a myarray <<< $SNUPKG_FILELIST
           for i in "${myarray[@]}"; do
             dotnet nuget push "${i}" --api-key "${{ secrets.NugetOrg_ApiToken }}" --source "https://api.nuget.org/v3/index.json" --symbol-api-key "${{ secrets.NugetOrg_ApiToken }}" --symbol-source "https://api.nuget.org/v3/index.json" --skip-duplicate

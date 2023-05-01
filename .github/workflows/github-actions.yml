@@ -73,21 +73,23 @@ jobs:
         id: FindNugets
         if: env.useDotnet && env.publishNugets
         run: |
-          echo "::set-output name=NUPKG_FILELIST::$(find . -wholename './src/**/bin/Release/*.nupkg' -print)
-          echo "::set-output name=SNUPKG_FILELIST::$(find . -wholename './src/**/bin/Release/*.snupkg' -print)
+          echo "NUPKG_FILELIST=$(find . -wholename './src/**/bin/Release/*.nupkg' -print)" >> "$GITHUB_ENV"
+          echo "SNUPKG_FILELIST=$(find . -wholename './src/**/bin/Release/*.snupkg' -print)" >> "$GITHUB_ENV"
+          # echo "::set-output name=NUPKG_FILELIST::$(find . -wholename './src/**/bin/Release/*.nupkg' -print)
+          # echo "::set-output name=SNUPKG_FILELIST::$(find . -wholename './src/**/bin/Release/*.snupkg' -print)
 
       - name: .NET | Publish NuGets
         if: env.useDotnet && env.publishNugets
         run: |
           mkdir "publish-nuget" --parents
 
-          NUPKG_FILELIST = ${{ steps.FindNugets.outputs.NUPKG_FILELIST }}
+          NUPKG_FILELIST = ${{ env.NUPKG_FILELIST }}
           IFS="," read -a myarray <<< $NUPKG_FILELIST
           for i in "${myarray[@]}"; do
             cp $i "publish-nuget"
           done
 
-          SNUPKG_FILELIST = ${{ steps.FindNugets.outputs.SNUPKG_FILELIST }}
+          SNUPKG_FILELIST = ${{ env.SNUPKG_FILELIST }}
           IFS="," read -a myarray <<< $SNUPKG_FILELIST
           for i in "${myarray[@]}"; do
             cp $i "publish-nuget"
@@ -122,14 +124,14 @@ jobs:
         id: FindNugetArtifacts
         if: env.useDotnet && env.publishNugets
         run: |
-          echo "::set-output name=NUPKG_FILELIST::$(find . -wholename './nuget-packages/*.nupkg' -print)
-          echo "::set-output name=SNUPKG_FILELIST::$(find . -wholename './nuget-packages/*.snupkg' -print)
+          echo "NUPKG_FILELIST=$(find . -wholename './nuget-packages/*.nupkg' -print)" >> "$GITHUB_ENV"
+          echo "SNUPKG_FILELIST=$(find . -wholename './nuget-packages/*.snupkg' -print)" >> "$GITHUB_ENV"
 
       - name: .NET | Push NuGets
         if: env.useDotnet && env.publishNugets
         run: |
-          NUPKG_FILELIST = ${{ steps.FindNugetArtifacts.outputs.NUPKG_FILELIST }}
-          IFS="," read -a myarray <<< $NUPKG_FILELIST
+          SNUPKG_FILELIST = ${{ env.SNUPKG_FILELIST }}
+          IFS="," read -a myarray <<< $SNUPKG_FILELIST
           for i in "${myarray[@]}"; do
             dotnet nuget push "${i}" --api-key "${{ secrets.NugetOrg_ApiToken }}" --source "https://api.nuget.org/v3/index.json" --symbol-api-key "${{ secrets.NugetOrg_ApiToken }}" --symbol-source "https://api.nuget.org/v3/index.json" --skip-duplicate
           done

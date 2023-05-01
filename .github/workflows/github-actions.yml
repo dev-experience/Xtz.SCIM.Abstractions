@@ -7,20 +7,14 @@ env:
   runUnitTests: false
 jobs:
 
-  CI_Build:
-    name: CI - Build & Test
+  CI_Build_Test_Publish:
+    name: CI - Build, Test, and Publish
     runs-on: ubuntu-latest
     strategy:
       matrix:
         dotnetSdkVersion: [ '6.0.x' ]
 
     steps:
-
-      - run: |
-          echo "github.event_name = '${{ github.event_name }}'"
-          echo "runner.os = '${{ runner.os }}'"
-          echo "github.ref = '${{ github.ref }}'"
-          echo "github.repository = '${{ github.repository }}'"
 
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -61,17 +55,9 @@ jobs:
       #     name: dotnet-test-results-${{ matrix.dotnetSdkVersion }}
       #     path: UnitTests-${{ matrix.dotnetSdkVersion }}
 
-  CI_Publish:
-    name: CI - Publish Artifacts
-    if: github.ref == 'refs/heads/main'
-    needs: CI_Build
-    runs-on: ubuntu-latest
-
-    steps:
-
       - name: .NET | Find NuGets
         id: FindNugets
-        if: env.useDotnet && env.publishNugets
+        if: github.ref == 'refs/heads/main' && env.useDotnet && env.publishNugets
         run: |
           echo "NUPKG_FILELIST=$(find . -wholename './src/**/bin/Release/*.nupkg' -print)" >> "$GITHUB_ENV"
           echo "SNUPKG_FILELIST=$(find . -wholename './src/**/bin/Release/*.snupkg' -print)" >> "$GITHUB_ENV"
@@ -79,24 +65,24 @@ jobs:
           # echo "::set-output name=SNUPKG_FILELIST::$(find . -wholename './src/**/bin/Release/*.snupkg' -print)
 
       - name: .NET | Publish NuGets
-        if: env.useDotnet && env.publishNugets
+        if: github.ref == 'refs/heads/main' && env.useDotnet && env.publishNugets
         run: |
           mkdir "publish-nuget" --parents
 
-          NUPKG_FILELIST = ${{ env.NUPKG_FILELIST }}
+          NUPKG_FILELIST = '${{ env.NUPKG_FILELIST }}'
           IFS="," read -a myarray <<< $NUPKG_FILELIST
           for i in "${myarray[@]}"; do
             cp $i "publish-nuget"
           done
 
-          SNUPKG_FILELIST = ${{ env.SNUPKG_FILELIST }}
+          SNUPKG_FILELIST = '${{ env.SNUPKG_FILELIST }}'
           IFS="," read -a myarray <<< $SNUPKG_FILELIST
           for i in "${myarray[@]}"; do
             cp $i "publish-nuget"
           done
 
       - name: .NET | Store NuGet artifacts
-        if: env.useDotnet && env.publishNugets
+        if: github.ref == 'refs/heads/main' && env.useDotnet && env.publishNugets
         uses: actions/upload-artifact@v3
         with:
           name: nuget-packages
@@ -105,7 +91,7 @@ jobs:
   CD_Push:
     name: CD - Push
     if: github.ref == 'refs/heads/main'
-    needs: CI_Publish
+    needs: CI_Build_Test_Publish
     runs-on: ubuntu-latest
 
     steps:
@@ -130,7 +116,7 @@ jobs:
       - name: .NET | Push NuGets
         if: env.useDotnet && env.publishNugets
         run: |
-          SNUPKG_FILELIST = ${{ env.SNUPKG_FILELIST }}
+          SNUPKG_FILELIST = '${{ env.SNUPKG_FILELIST }}'
           IFS="," read -a myarray <<< $SNUPKG_FILELIST
           for i in "${myarray[@]}"; do
             dotnet nuget push "${i}" --api-key "${{ secrets.NugetOrg_ApiToken }}" --source "https://api.nuget.org/v3/index.json" --symbol-api-key "${{ secrets.NugetOrg_ApiToken }}" --symbol-source "https://api.nuget.org/v3/index.json" --skip-duplicate

@@ -102,10 +102,12 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: nuget-packages
+          path: publish-nuget
 
-      - name: .NET | Print NuGet artifacts
-        if: env.useDotnet && env.publishNugets
-        run: ls -R
+      # - name: .NET | Print NuGet artifacts
+      #   if: env.useDotnet && env.publishNugets
+      #   run: ls -R
+      #   working-directory: publish-nuget
 
       - name: .NET | Find NuGets
         id: FindNugetArtifacts
